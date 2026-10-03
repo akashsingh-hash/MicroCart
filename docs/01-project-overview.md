@@ -5,11 +5,13 @@
 **MicroCart** is a backend system for an online shopping cart, built using the **Microservices Architecture**. Instead of building one big monolithic application, the system is split into multiple small, independently deployable services that each own a specific business domain.
 
 This project demonstrates real-world patterns used in enterprise-level microservice systems including:
-- Service discovery and registration
-- API gateway with routing and security
-- Inter-service synchronous communication
+- Service discovery and registration (Eureka)
+- API gateway with routing and security (Spring Cloud Gateway)
+- Inter-service synchronous communication (WebClient)
+- Asynchronous event-driven messaging with Apache Kafka
 - Fault tolerance, retries, and circuit breakers with Resilience4j
 - Operational monitoring and health checks with Spring Boot Actuator
+- Distributed tracing across microservices with Micrometer Tracing (Brave) & Zipkin
 - JWT-based security with Keycloak
 - Polyglot persistence (MongoDB + MySQL)
 
@@ -44,8 +46,11 @@ Microservices architecture decomposes an application into a set of small, autono
 | `product-service` | Random (0) | MongoDB | Product catalog CRUD |
 | `order-service` | 8081 | MySQL | Order placement, calls inventory, Resilience4j |
 | `inventory-service` | Random (0) | MySQL | Stock level checking |
+| `notification-service` | Random (0) | None | Kafka consumer — processes order events & triggers notifications |
 
-> **Keycloak** (Identity Provider) runs separately on port **8181** (not a part of this codebase, but required externally).
+> **Keycloak** (Identity Provider) runs separately on port **8181** (not a part of this codebase, but required externally).  
+> **Zipkin** (Distributed Tracing UI / Collector) runs separately on port **9411** (`openzipkin/zipkin`).  
+> **Kafka** (Message Broker) runs separately on port **9092** (`apache/kafka`).  
 
 ---
 
@@ -69,7 +74,9 @@ Microservices architecture decomposes an application into a set of small, autono
 | `spring-cloud-starter-gateway` | API Gateway (reactive-based routing) |
 | `spring-boot-starter-security` | Spring Security |
 | `spring-boot-starter-oauth2-resource-server` | JWT token validation |
-| `spring-boot-starter-actuator` | Health/metrics endpoints & circuit breaker monitoring |
+| `spring-boot-starter-actuator` | Health/metrics endpoints, circuit breaker monitoring, & observation foundation |
+| `micrometer-tracing-bridge-brave` | Spring Boot 3 distributed tracing bridge (replaces Spring Cloud Sleuth) |
+| `zipkin-reporter-brave` | Transmits distributed trace spans to Zipkin |
 | `resilience4j-spring-boot3` | Fault tolerance auto-configuration for Spring Boot 3 |
 | `resilience4j-circuitbreaker` | Circuit breaker implementation |
 | `resilience4j-retry` | Automatic retries for transient failures |
@@ -82,6 +89,11 @@ Microservices architecture decomposes an application into a set of small, autono
 - **Keycloak** — Open-source Identity and Access Management (IAM)
 - **OAuth 2.0 + JWT** — Industry standard token-based authentication
 - **Spring Security** — Security filter chain in each service
+
+### Observability & Distributed Tracing
+- **Micrometer Tracing + Brave** — Distributed tracing engine (Trace ID & Span ID propagation)
+- **Zipkin** — Distributed tracing UI & collector on `http://localhost:9411`
+- **Spring Boot Actuator** — Health metrics and observability
 
 ### Developer Tools
 - **Lombok** — Reduces Java boilerplate (`@Data`, `@Builder`, `@RequiredArgsConstructor`)
@@ -134,16 +146,21 @@ online-shopping-cart/          ← Maven parent (aggregator)
 │       ├── config/{SecurityConfig, WebClientConfig, KeycloakJwtAuthenticationConverter}.java
 │       └── OrderServiceApplication.java
 │
-└── inventory-service/         ← Stock Management
+├── inventory-service/         ← Stock Management
+│   ├── pom.xml
+│   └── src/main/java/.../
+│       ├── controller/InventoryController.java
+│       ├── service/InventoryService.java
+│       ├── model/Inventory.java
+│       ├── dto/InventoryResponse.java
+│       ├── repository/InventoryRepository.java
+│       ├── config/SecurityConfig.java
+│       └── InventoryServiceApplication.java
+│
+└── notification-service/      ← Event-Driven Notification (Kafka Consumer)
     ├── pom.xml
     └── src/main/java/.../
-        ├── controller/InventoryController.java
-        ├── service/InventoryService.java
-        ├── model/Inventory.java
-        ├── dto/InventoryResponse.java
-        ├── repository/InventoryRepository.java
-        ├── config/SecurityConfig.java
-        └── InventoryServiceApplication.java
+        └── NotificationServiceApplication.java
 ```
 
 ---
@@ -175,16 +192,19 @@ Product-service and inventory-service use port 0, meaning Spring picks a random 
 ## 🌐 Request Flow Example — Placing an Order
 
 ```
-1. Client sends POST /api/order with JWT token
-2. API Gateway (8080) receives request
-3. Gateway validates JWT against Keycloak (8181)
-4. Gateway routes to order-service (lb://order-service → 8081)
-5. OrderService extracts line items from request
-6. OrderService calls inventory-service via WebClient:
-   GET http://inventory-service/api/inventory?skuCode=sku1&skuCode=sku2
-   (with forwarded JWT Bearer token)
-7. InventoryService queries MySQL, returns stock status
-8. If ALL items are in stock → Order is saved to MySQL
-9. If ANY item is out of stock → IllegalAccessException thrown → 500 error
-10. Response propagates back to client
+1.  Client sends POST /api/order with JWT token
+2.  API Gateway (8080) receives request
+3.  Gateway validates JWT against Keycloak (8181)
+4.  Gateway routes to order-service (lb://order-service → 8081)
+5.  OrderService extracts line items from request
+6.  OrderService calls inventory-service via WebClient:
+    GET http://inventory-service/api/inventory?skuCode=sku1&skuCode=sku2
+    (with forwarded JWT Bearer token)
+7.  InventoryService queries MySQL, returns stock status
+8.  If ALL items are in stock → Order is saved to MySQL
+9.  If ANY item is out of stock → IllegalAccessException thrown → 500 error
+10. [Async] OrderService publishes OrderPlacedEvent to Kafka topic "notificationTopic"
+11. notification-service @KafkaListener picks up the event asynchronously
+12. Notification is processed (logged / email / SMS)
+13. Response (step 8 or 9 result) propagates back to client
 ```

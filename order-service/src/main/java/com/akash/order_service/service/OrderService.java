@@ -3,6 +3,7 @@ package com.akash.order_service.service;
 import com.akash.order_service.dto.InventoryResponse;
 import com.akash.order_service.dto.OrderLineItemsDto;
 import com.akash.order_service.dto.OrderRequest;
+import com.akash.order_service.event.OrderPlacedEvent;
 import com.akash.order_service.model.Order;
 import com.akash.order_service.model.OrderLineItems;
 import com.akash.order_service.repository.OrderRepository;
@@ -10,6 +11,7 @@ import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -26,6 +28,8 @@ import static java.util.Arrays.stream;
 @RequiredArgsConstructor
 @Transactional
 public class OrderService {
+
+    private final KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
 
     private final OrderRepository orderRepository;
 
@@ -59,6 +63,7 @@ public class OrderService {
 
         if (allProductsInStock) {
             orderRepository.save(order);
+            kafkaTemplate.send("notificationTopic",new OrderPlacedEvent(order.getOrderNumber()));
             return CompletableFuture.supplyAsync(() -> "Order Placed Successfully");
         } else {
             throw new IllegalAccessException("Product not in stock, please try again.");

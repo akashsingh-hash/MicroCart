@@ -20,6 +20,7 @@ Welcome to the complete documentation for **MicroCart** — a production-grade, 
 | [10 - Configuration Reference](./10-configuration-reference.md) | All application properties explained |
 | [11 - Startup & Running Guide](./11-startup-running-guide.md) | How to set up, start, and test the whole system |
 | [12 - Interview Q&A](./12-interview-qa.md) | 50+ interview questions with detailed answers |
+| [13 - Notification Service](./13-notification-service.md) | Kafka consumer, event-driven notifications, Eureka & tracing setup |
 
 ---
 
@@ -33,7 +34,7 @@ Client (Postman / Browser)
   │   API Gateway    │  :8080  ← Single entry point
   │  (Spring Cloud   │         ← JWT validation
   │    Gateway)      │         ← Route → lb://
-  └────────┬─────────┘
+  └────────┬─────────┘         ← Tracing span created
            │ Service Discovery (Eureka)
            ▼
   ┌─────────────────────────────────────────┐
@@ -46,24 +47,33 @@ Client (Postman / Browser)
     │  Service    │   │   Service   │   │    Service    │
     │  (MongoDB)  │   │   (MySQL)   │   │   (MySQL)     │
     │  Port: 0*   │   │  Port: 8081 │   │  Port: 0*     │
-    └─────────────┘   └──────┬──────┘   └───────────────┘
-                             │  WebClient + Resilience4j
-                             │  (CircuitBreaker / Retry / Fallback)
-                             └──── calls Inventory ────►
+    └──────┬──────┘   └──────┬──────┘   └──────┬────────┘
+           │                 │ WebClient       │
+           │                 │ + Resilience4j  │
+           │                 └─ calls Inv. ────►
+           │                 │                 │
+           ▼                 ▼                 ▼
+   ══════════════════════════════════════════════════════
+     Distributed Tracing: Micrometer Tracing (Brave)
+              ──► Zipkin Server (:9411) ◄──
+   ══════════════════════════════════════════════════════
 ```
 > `Port: 0*` = random port assigned by Spring; Eureka tracks the actual port.
+> Distributed traces are exported to Zipkin on port `9411`.
 
 ---
 
 ## 🚀 Startup Order
 
-Start services in **this exact order** to avoid registration failures:
+Start infrastructure and services in **this exact order**:
 
-1. `discovery-server` — must be up before anyone registers
+0. `Keycloak` (:8181), `Zipkin` (:9411) & `Kafka` (:9092) — IAM, Distributed Tracing, and Messaging infrastructure
+1. `discovery-server` (:8761) — must be up before anyone registers
 2. `inventory-service` — order-service depends on it
 3. `product-service`
 4. `order-service`
-5. `api-gateway` — last, after all services are registered
+5. `api-gateway` (:8080) — after all services are registered
+6. `notification-service` — Kafka consumer, after Kafka broker is ready
 
 ---
 

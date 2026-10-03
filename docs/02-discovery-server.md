@@ -33,6 +33,10 @@ server.port=8761
 eureka.instance.hostname=localhost
 eureka.client.register-with-eureka=false
 eureka.client.fetch-registry=false
+
+# Tracing (Micrometer & Zipkin for Spring Boot 3)
+management.tracing.sampling.probability=1.0
+management.zipkin.tracing.endpoint=http://localhost:9411/api/v2/spans
 ```
 
 ### Configuration Explained
@@ -43,6 +47,8 @@ eureka.client.fetch-registry=false
 | `eureka.client.register-with-eureka` | `false` | The server doesn't register **itself** — it IS the registry |
 | `eureka.client.fetch-registry` | `false` | No need to cache registry locally — it is the source of truth |
 | `eureka.instance.hostname` | `localhost` | Hostname for the Eureka dashboard |
+| `management.tracing.sampling.probability` | `1.0` | Sample 100% of requests for distributed tracing |
+| `management.zipkin.tracing.endpoint` | `http://localhost:9411/api/v2/spans` | Zipkin v2 spans ingestion endpoint |
 
 ---
 

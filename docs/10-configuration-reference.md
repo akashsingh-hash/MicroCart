@@ -28,6 +28,10 @@ server.port=8761
 eureka.instance.hostname=localhost
 eureka.client.register-with-eureka=false
 eureka.client.fetch-registry=false
+
+# Tracing (Micrometer & Zipkin for Spring Boot 3)
+management.tracing.sampling.probability=1.0
+management.zipkin.tracing.endpoint=http://localhost:9411/api/v2/spans
 ```
 
 | Property | Value | Explanation |
@@ -37,6 +41,8 @@ eureka.client.fetch-registry=false
 | `eureka.instance.hostname` | `localhost` | Hostname for Eureka self-reference |
 | `eureka.client.register-with-eureka` | `false` | Server doesn't register itself |
 | `eureka.client.fetch-registry` | `false` | No need to cache registry locally |
+| `management.tracing.sampling.probability` | `1.0` | Sample 100% of requests for tracing |
+| `management.zipkin.tracing.endpoint` | `http://localhost:9411/api/v2/spans` | Zipkin span collection URL |
 
 ---
 
@@ -83,6 +89,14 @@ spring:
         jwt:
           issuer-uri: http://localhost:8181/realms/ecommerce
 
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
+
 eureka:
   client:
     service-url:
@@ -104,6 +118,8 @@ logging:
 | `gateway.routes[*].uri` | `lb://service-name` | Load-balanced URI via Eureka |
 | `gateway.routes[*].predicates` | `Path=/api/order/**` | URL pattern to match |
 | `jwt.issuer-uri` | Keycloak realm URL | Used to validate JWT issuer claim |
+| `management.tracing.sampling.probability` | `1.0` | Sample 100% of gateway requests |
+| `management.zipkin.tracing.endpoint` | `http://localhost:9411/api/v2/spans` | Export gateway traces to Zipkin |
 | `eureka.client.service-url.defaultZone` | `http://localhost:8761/eureka/` | Where to register/find services |
 | `logging.level.org.springframework.cloud.gateway` | `TRACE` | Verbose gateway logging for debugging |
 
@@ -120,6 +136,10 @@ server.port=0
 eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
 spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:8181/realms/ecommerce
 spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://localhost:8181/realms/ecommerce/protocol/openid-connect/certs
+
+# Tracing (Micrometer & Zipkin for Spring Boot 3)
+management.tracing.sampling.probability=1.0
+management.zipkin.tracing.endpoint=http://localhost:9411/api/v2/spans
 ```
 
 | Property | Value | Explanation |
@@ -130,6 +150,8 @@ spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://localhost:8181/real
 | `eureka.client.service-url.defaultZone` | Eureka URL | Where to register |
 | `jwt.issuer-uri` | Keycloak realm URL | Validates `iss` claim in JWT |
 | `jwt.jwk-set-uri` | Keycloak JWKS endpoint | Fetches public keys for signature verification |
+| `management.tracing.sampling.probability` | `1.0` | Sample 100% of requests for distributed tracing |
+| `management.zipkin.tracing.endpoint` | `http://localhost:9411/api/v2/spans` | Export traces to Zipkin collector |
 
 ---
 
@@ -170,6 +192,10 @@ resilience4j.retry.instances.inventoryService.waitDuration=2s
 management.endpoints.web.exposure.include=health,info,metrics
 management.endpoint.health.show-details=always
 management.health.circuitbreakers.enabled=true
+
+# Tracing (Micrometer & Zipkin for Spring Boot 3)
+management.tracing.sampling.probability=1.0
+management.zipkin.tracing.endpoint=http://localhost:9411/api/v2/spans
 ```
 
 | Property | Value | Explanation |
@@ -198,6 +224,8 @@ management.health.circuitbreakers.enabled=true
 | `management.endpoints.web.exposure.include` | `health,info,metrics` | Exposes Actuator web endpoints over HTTP |
 | `management.endpoint.health.show-details` | `always` | Always displays full component details in `/actuator/health` |
 | `management.health.circuitbreakers.enabled` | `true` | Enables Resilience4j health indicator in `/actuator/health` |
+| `management.tracing.sampling.probability` | `1.0` | Sample 100% of order-service calls for tracing |
+| `management.zipkin.tracing.endpoint` | `http://localhost:9411/api/v2/spans` | Export spans to Zipkin collector |
 
 ---
 
@@ -217,6 +245,10 @@ eureka.instance.instance-id=${spring.application.name}:${random.value}
 eureka.instance.prefer-ip-address=true
 spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:8181/realms/ecommerce
 spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://localhost:8181/realms/ecommerce/protocol/openid-connect/certs
+
+# Tracing (Micrometer & Zipkin for Spring Boot 3)
+management.tracing.sampling.probability=1.0
+management.zipkin.tracing.endpoint=http://localhost:9411/api/v2/spans
 ```
 
 | Property | Value | Explanation |
@@ -227,6 +259,55 @@ spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://localhost:8181/real
 | `server.port` | `0` | Random port — supports multiple instances |
 | `eureka.instance.instance-id` | `inventory-service:{random}` | Unique ID per instance for Eureka |
 | `eureka.instance.prefer-ip-address` | `true` | Register by IP, not hostname |
+| `management.tracing.sampling.probability` | `1.0` | Sample 100% of inventory queries for tracing |
+| `management.zipkin.tracing.endpoint` | `http://localhost:9411/api/v2/spans` | Export spans to Zipkin collector |
+
+---
+
+## Notification Service
+
+**File:** `notification-service/src/main/resources/application.properties`
+
+```properties
+spring.application.name=notification-service
+
+# Pick a random free port
+server.port=0
+
+# Eureka Client
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+eureka.instance.instance-id=${spring.application.name}:${random.value}
+eureka.instance.prefer-ip-address=true
+
+# Kafka Properties
+spring.kafka.bootstrap-servers=localhost:9092
+spring.kafka.template.default-topic=notificationTopic
+
+# Kafka Producer settings
+spring.kafka.producer.key-serializer=org.apache.kafka.common.serialization.StringSerializer
+spring.kafka.producer.value-serializer=org.springframework.kafka.support.serializer.JsonSerializer
+
+# Kafka Consumer settings
+spring.kafka.consumer.key-deserializer=org.apache.kafka.common.serialization.StringDeserializer
+spring.kafka.consumer.value-deserializer=org.springframework.kafka.support.serializer.JsonDeserializer
+
+# Tracing (Micrometer & Zipkin for Spring Boot 3)
+management.tracing.sampling.probability=1.0
+management.zipkin.tracing.endpoint=http://localhost:9411/api/v2/spans
+```
+
+| Property | Value | Explanation |
+|---|---|---|
+| `spring.application.name` | `notification-service` | Eureka registration name |
+| `server.port` | `0` | Random port — supports multiple instances |
+| `eureka.instance.instance-id` | `notification-service:{random}` | Unique ID per instance for Eureka |
+| `eureka.instance.prefer-ip-address` | `true` | Register by IP, not hostname |
+| `spring.kafka.bootstrap-servers` | `localhost:9092` | Kafka broker address |
+| `spring.kafka.template.default-topic` | `notificationTopic` | Default Kafka topic name |
+| `spring.kafka.producer.value-serializer` | `JsonSerializer` | Serialize Java objects to JSON when publishing |
+| `spring.kafka.consumer.value-deserializer` | `JsonDeserializer` | Deserialize JSON events back into Java objects |
+| `management.tracing.sampling.probability` | `1.0` | Sample 100% of requests for distributed tracing |
+| `management.zipkin.tracing.endpoint` | `http://localhost:9411/api/v2/spans` | Export spans to Zipkin collector |
 
 ---
 
@@ -284,6 +365,28 @@ During development, `TRACE` on the gateway gives visibility into:
 
 ---
 
+---
+
+## Distributed Tracing Configuration (Micrometer & Zipkin)
+
+In **Spring Boot 3**, distributed tracing transitioned from the legacy **Spring Cloud Sleuth** library to **Micrometer Tracing**. 
+
+### Properties Reference
+
+| Property | Default / Recommended | Purpose |
+|---|---|---|
+| `management.tracing.sampling.probability` | `1.0` | Probability that a given request trace is recorded and exported (`1.0` = 100% of requests; `0.1` = 10% in high-traffic production). |
+| `management.zipkin.tracing.endpoint` | `http://localhost:9411/api/v2/spans` | HTTP endpoint of the Zipkin server where spans are reported via HTTP POST. |
+
+### How Tracing Works Across Microservices
+
+1. **Gateway Ingress**: A client sends a request to `http://localhost:8080/api/order`. The API Gateway creates a root **Trace ID** and an initial **Span ID**.
+2. **Context Propagation**: When the Gateway forwards to `order-service`, and when `order-service` calls `inventory-service` via `WebClient`, the Trace ID and parent Span ID are propagated in HTTP headers (`b3` / W3C `traceparent`).
+3. **Span Reporting**: Each microservice uses `zipkin-reporter-brave` to asynchronously push completed span records to Zipkin at `http://localhost:9411/api/v2/spans`.
+4. **Visualization**: Visiting `http://localhost:9411` displays the full execution tree and timings across Gateway ➡️ Order Service ➡️ Inventory Service for each request.
+
+---
+
 ## Port Summary
 
 | Service | Port | Type |
@@ -293,7 +396,10 @@ During development, `TRACE` on the gateway gives visibility into:
 | Order Service | 8081 | Fixed |
 | Product Service | Random | Dynamic (registered with Eureka) |
 | Inventory Service | Random | Dynamic (registered with Eureka) |
-| Keycloak | 8181 | Fixed (external) |
+| Notification Service | Random | Dynamic (registered with Eureka) |
+| Keycloak | 8181 | Fixed (external IAM) |
+| Zipkin | 9411 | Fixed (external distributed tracing) |
+| Kafka | 9092 | Fixed (external message broker) |
 | MySQL | 3306 | Fixed (external) |
 | MongoDB | 27017 | Fixed (external) |
 

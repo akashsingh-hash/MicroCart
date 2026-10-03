@@ -80,6 +80,10 @@ resilience4j.retry.instances.inventoryService.waitDuration=2s
 management.endpoints.web.exposure.include=health,info,metrics
 management.endpoint.health.show-details=always
 management.health.circuitbreakers.enabled=true
+
+# Tracing (Micrometer & Zipkin for Spring Boot 3)
+management.tracing.sampling.probability=1.0
+management.zipkin.tracing.endpoint=http://localhost:9411/api/v2/spans
 ```
 
 **`ddl-auto=update`** — Hibernate will update the schema on startup (add columns if missing), but won't drop and recreate tables.

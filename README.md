@@ -27,8 +27,8 @@ The system consists of the following microservices:
 - **Framework:** Spring Boot 3.3.0, Spring Cloud 2023.0.3
 - **Service Discovery:** Netflix Eureka
 - **API Gateway:** Spring Cloud Gateway
+- **Distributed Tracing & Observability:** Micrometer Tracing (Brave bridge), Zipkin, Spring Boot Actuator
 - **Fault Tolerance & Resilience:** Resilience4j (Circuit Breaker, Retry, Time Limiter)
-- **Monitoring & Metrics:** Spring Boot Actuator
 - **Security & IAM:** Keycloak (OAuth2 Resource Server / JWT)
 - **Data Persistence:** Spring Data JPA (MySQL) & Spring Data MongoDB
 - **Utilities:** Project Lombok
@@ -61,6 +61,7 @@ Comprehensive project documentation is available in the [`docs/`](./docs) direct
 - **Maven 3.9+** (or use included Maven wrappers).
 - Database instances (MySQL / MongoDB / Docker) depending on the services configured.
 - Keycloak 22+ running on `http://localhost:8181`.
+- Zipkin server running on `http://localhost:9411` (`docker run -d -p 9411:9411 openzipkin/zipkin`).
 
 ### Build the Project
 From the root directory:

@@ -11,6 +11,8 @@ Before starting any service, ensure the following are installed and running:
 | MySQL | 8.0+ | order-service, inventory-service |
 | MongoDB | 6.0+ | product-service |
 | Keycloak | 22+ | Authentication (external IAM) |
+| Zipkin | Latest | Distributed Tracing collector & UI (:9411) |
+| Apache Kafka | 3.x+ | Message broker for async notifications (:9092) |
 
 ---
 
@@ -34,9 +36,9 @@ Just ensure MongoDB is running on `localhost:27017`.
 
 ---
 
-## Step 2: Start Keycloak
+## Step 2: Start Keycloak & Zipkin Infrastructure
 
-### Using Docker (Recommended)
+### Start Keycloak (IAM)
 
 ```bash
 docker run -d \
@@ -48,6 +50,17 @@ docker run -d \
 ```
 
 Access the Keycloak Admin Console: **http://localhost:8181**
+
+### Start Zipkin (Distributed Tracing)
+
+```bash
+docker run -d \
+  --name zipkin \
+  -p 9411:9411 \
+  openzipkin/zipkin
+```
+
+Access the Zipkin Dashboard: **http://localhost:9411**
 
 ### Configure Keycloak (One-time setup)
 
@@ -76,7 +89,7 @@ From the root directory:
 mvn clean install -DskipTests
 ```
 
-This builds all 5 services into JAR files in their respective `target/` directories.
+This builds all 6 services into JAR files in their respective `target/` directories.
 
 ---
 
@@ -141,7 +154,7 @@ cd order-service
 
 ---
 
-### 5. Start API Gateway (Last!)
+### 5. Start API Gateway
 
 ```bash
 cd api-gateway
@@ -149,7 +162,20 @@ cd api-gateway
 ```
 
 ✅ Verify: `API-SERVER` appears in Eureka dashboard.
-✅ Verify: All 4 other services are visible in Eureka.
+✅ Verify: All 5 other services are visible in Eureka.
+
+---
+
+### 6. Start Notification Service
+
+```bash
+cd notification-service
+./mvnw spring-boot:run
+```
+
+✅ Verify: `NOTIFICATION-SERVICE` appears in Eureka dashboard.
+
+> **Note:** Kafka must be running on `localhost:9092` before starting this service.
 
 ---
 
